@@ -35,7 +35,8 @@ class PointCloudConverter : public rclcpp::Node
   void callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
     auto first_time = this->now();
-    double time_diff_sec;
+    double time_diff_sec = (first_time-last_time_).seconds();
+    last_time_ = first_time;
 
     pcl::PointCloud<pcl::PointXYZ> pcl_cloud;
     pcl::fromROSMsg(*msg, pcl_cloud);

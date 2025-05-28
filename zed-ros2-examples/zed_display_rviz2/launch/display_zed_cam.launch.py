@@ -37,8 +37,6 @@ def launch_setup(context, *args, **kwargs):
     camera_name = LaunchConfiguration('camera_name')
     camera_model = LaunchConfiguration('camera_model')
 
-    publish_svo_clock = LaunchConfiguration('publish_svo_clock')
-
     camera_name_val = camera_name.perform(context)
     camera_model_val = camera_model.perform(context)
 
@@ -72,7 +70,6 @@ def launch_setup(context, *args, **kwargs):
         name=camera_model_val +'_rviz2',
         output='screen',
         arguments=[['-d'], [config_rviz2]],
-        parameters=[{'use_sim_time': publish_svo_clock}]
     )
 
     # ZED Wrapper launch file
@@ -83,8 +80,7 @@ def launch_setup(context, *args, **kwargs):
         ]),
         launch_arguments={
             'camera_name': camera_name_val,
-            'camera_model': camera_model_val,
-            'publish_svo_clock': publish_svo_clock
+            'camera_model': camera_model_val
         }.items(),
         condition=IfCondition(start_zed_node)
     )
@@ -110,10 +106,6 @@ def generate_launch_description():
                 'camera_model',
                 description='[REQUIRED] The model of the camera. Using a wrong camera model can disable camera features.',
                 choices=['zed', 'zedm', 'zed2', 'zed2i', 'zedx', 'zedxm', 'virtual', 'zedxonegs', 'zedxone4k']),
-            DeclareLaunchArgument(
-                'publish_svo_clock',
-                default_value='false',
-                description='If set to `true` the node will act as a clock server publishing the SVO timestamp. This is useful for node synchronization'),
             OpaqueFunction(function=launch_setup)
         ]
     )
