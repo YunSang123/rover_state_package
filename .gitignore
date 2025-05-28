@@ -1,4 +1,4 @@
 # zed-ros2-examples와 zed-ros2-wrapper는 git clone해서 다운받기
-/zed-ros2-examples
-/zed-ros2-wrapper
-/.vscode
+zed-ros2-examples
+zed-ros2-wrapper
+.vscode/
