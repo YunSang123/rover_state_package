@@ -32,6 +32,7 @@ class GoalTracker : public rclcpp::Node {
   rclcpp::Publisher<rover_msgs::msg::Proprioception>::SharedPtr goal_pub_;
   double goal_x_;
   double goal_y_;
+  rclcpp::Time curr_time_;
 
   void poseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
     // 현재 위치
@@ -63,6 +64,9 @@ class GoalTracker : public rclcpp::Node {
     rover_msgs::msg::Proprioception pr_msg;
     pr_msg.distance = distance/11;
     pr_msg.heading = yaw_error/M_PI;
+
+    auto curr_time_ = this->now();
+    pr_msg.curr_time = curr_time_.seconds();
     goal_pub_->publish(pr_msg);
 
     // 출력

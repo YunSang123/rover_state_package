@@ -32,6 +32,7 @@ class PointCloudConverter : public rclcpp::Node
 
   private:
   rclcpp::Time last_time_;
+  rclcpp::Time curr_time_;
   void callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
     auto first_time = this->now();
@@ -47,9 +48,9 @@ class PointCloudConverter : public rclcpp::Node
 
     Eigen::Matrix4f transform;
     float alpha = 0.0*M_PI/180;
-    float beta = 15.0*M_PI/180;
+    float beta = 22.5*M_PI/180;
     float gamma = 0.0*M_PI/180;
-    float tx = 0.15, ty = 0.0, tz = 0.45;
+    float tx = 0.25, ty = 0.0, tz = 0.55;
     transform << cos(alpha)*cos(beta), cos(alpha)*sin(beta)*sin(gamma)-sin(alpha)*cos(gamma), cos(alpha)*sin(beta)*cos(gamma)+sin(alpha)*sin(gamma), tx,
                  sin(alpha)*cos(beta), sin(alpha)*sin(beta)*sin(gamma)+cos(alpha)*cos(gamma), sin(alpha)*sin(beta)*cos(gamma)-cos(alpha)*sin(gamma), ty,
                  -sin(beta), cos(beta)*sin(gamma), cos(beta)*cos(gamma), tz,
@@ -186,7 +187,11 @@ class PointCloudConverter : public rclcpp::Node
     // pub_->publish(dense_cloud);
     pub_sparse->publish(sparse_cloud);
     pub_dense->publish(dense_cloud);
+
+    auto curr_time_ = this->now();
+    exteroception_msg.curr_time = curr_time_.seconds();
     pub_exteroception->publish(exteroception_msg);
+    RCLCPP_INFO(this->get_logger(), "Time %f", exteroception_msg.curr_time);
 
     // 시간 확인
     auto final_time = this->now();
