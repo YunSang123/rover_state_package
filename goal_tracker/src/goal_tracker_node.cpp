@@ -10,10 +10,9 @@
 class GoalTracker : public rclcpp::Node {
     public:
     GoalTracker() : Node("goal_tracker_node") {
-
         // 파라미터 선언 및 기본값 설정
         this->declare_parameter("goal_x", 5.0);
-        this->declare_parameter("goal_y", 3.0);
+        this->declare_parameter("goal_y", 0.0);
         this->get_parameter("goal_x", goal_x_);
         this->get_parameter("goal_y", goal_y_);
 

@@ -4,6 +4,11 @@
 #include <sensor_msgs/msg/channel_float32.hpp>
 #include <geometry_msgs/msg/point32.hpp>
 
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <cmath>
+
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
@@ -11,6 +16,7 @@
 #include <pcl/filters/voxel_grid.h>
 
 #include "rover_msgs/msg/exteroception.hpp"
+#include "rover_msgs/msg/proprioception.hpp"
 
 #include <cmath>  // for std::isnan
 #include <Eigen/Dense>
@@ -20,10 +26,18 @@ class PointCloudConverter : public rclcpp::Node
   public:
   PointCloudConverter() : Node("pointcloud_converter_node")
   {
+    // /zed/zed_node/pose 구독
+        pose_sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        "/zed/zed_node/pose", 10,
+        std::bind(&PointCloudConverter::poseCallback, this, std::placeholders::_1));
+
+    // pointcloud2 구독
     sub_pointcloud2 = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       "/zed/zed_node/point_cloud/cloud_registered", 10,
       std::bind(&PointCloudConverter::callback, this, std::placeholders::_1));
 
+    
+    goal_pub_ = this->create_publisher<rover_msgs::msg::Proprioception>("/proprioception", 10);
     pub_sparse = this->create_publisher<sensor_msgs::msg::PointCloud>("/sparse_pointcloud", 10);
     pub_dense = this->create_publisher<sensor_msgs::msg::PointCloud>("/dense_pointcloud", 10);
     pub_exteroception = this->create_publisher<rover_msgs::msg::Exteroception>("/exteroception", 10);
@@ -31,7 +45,16 @@ class PointCloudConverter : public rclcpp::Node
   }
 
   private:
+  // 공통 변수 선언
   rclcpp::Time last_time_;
+  double robot_x, robot_y, robot_z;
+  int position_curr_time_sec;
+  int position_curr_time_nanosec;
+
+  // proprioception
+  double goal_x = 5.0;
+  double goal_y = 0.0;
+
   void callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
   {
     auto first_time = this->now();
@@ -47,9 +70,10 @@ class PointCloudConverter : public rclcpp::Node
 
     Eigen::Matrix4f transform;
     float alpha = 0.0*M_PI/180;
-    float beta = 15.0*M_PI/180;
+    float beta = 22.5*M_PI/180;
     float gamma = 0.0*M_PI/180;
-    float tx = 0.15, ty = 0.0, tz = 0.45;
+    // float tx = 0.15, ty = 0.0, tz = 0.45;
+    float tx = -0.13, ty = 0.0, tz = 1.0;
     transform << cos(alpha)*cos(beta), cos(alpha)*sin(beta)*sin(gamma)-sin(alpha)*cos(gamma), cos(alpha)*sin(beta)*cos(gamma)+sin(alpha)*sin(gamma), tx,
                  sin(alpha)*cos(beta), sin(alpha)*sin(beta)*sin(gamma)+cos(alpha)*cos(gamma), sin(alpha)*sin(beta)*cos(gamma)-cos(alpha)*sin(gamma), ty,
                  -sin(beta), cos(beta)*sin(gamma), cos(beta)*cos(gamma), tz,
@@ -194,10 +218,52 @@ class PointCloudConverter : public rclcpp::Node
     RCLCPP_INFO(this->get_logger(), "Published legacy PointCloud with %lu points | Δt = %.3f Hz", sparse_cloud.points.size(), 1.0/time_diff_sec);
   }
 
+  // velocity 추정용
+  void poseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg) {
+    // 현재 위치
+    robot_x = msg->pose.position.x;
+    robot_y = msg->pose.position.y;
+    robot_z = msg->pose.position.z;
+    position_curr_time_sec = msg->header.stamp.sec;
+    position_curr_time_nanosec = msg->header.stamp.nanosec;
+
+    // 현재 orientation → yaw 추출
+    tf2::Quaternion q(
+      msg->pose.orientation.x,
+      msg->pose.orientation.y,
+      msg->pose.orientation.z,
+      msg->pose.orientation.w
+    );
+    tf2::Matrix3x3 rot(q);
+    double roll, pitch, yaw;
+    rot.getRPY(roll, pitch, yaw);  // 우리는 yaw만 사용
+
+    // 목표 방향 계산
+    double dx = goal_x - robot_x;
+    double dy = goal_y - robot_y;
+    double distance = std::sqrt(dx*dx + dy*dy);
+    double theta_target = std::atan2(dy, dx);
+    double yaw_error = theta_target - yaw;
+
+    // -π ~ π 범위로 정규화
+    while (yaw_error > M_PI) yaw_error -= 2.0 * M_PI;
+    while (yaw_error < -M_PI) yaw_error += 2.0 * M_PI;
+
+    rover_msgs::msg::Proprioception pr_msg;
+    pr_msg.distance = distance/11;
+    pr_msg.heading = yaw_error/M_PI;
+    goal_pub_->publish(pr_msg);
+
+    // 출력
+    RCLCPP_INFO(this->get_logger(), "[Distance: %.2f m] [Yaw error: %.2f deg]", distance, yaw_error * 180.0 / M_PI);
+}
+  rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_pointcloud2;
+
   rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_sparse;
   rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_dense;
   rclcpp::Publisher<rover_msgs::msg::Exteroception>::SharedPtr pub_exteroception;
+  rclcpp::Publisher<rover_msgs::msg::Proprioception>::SharedPtr goal_pub_;
 };
 
 int main(int argc, char **argv)

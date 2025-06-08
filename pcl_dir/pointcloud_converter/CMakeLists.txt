@@ -8,6 +8,8 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(pcl_conversions REQUIRED)
@@ -20,7 +22,7 @@ include_directories(
 )
 
 add_executable(pointcloud_converter_node src/pointcloud_converter_node.cpp)
-ament_target_dependencies(pointcloud_converter_node rclcpp sensor_msgs geometry_msgs pcl_conversions rover_msgs)
+ament_target_dependencies(pointcloud_converter_node rclcpp tf2 tf2_ros sensor_msgs geometry_msgs pcl_conversions rover_msgs)
 target_link_libraries(pointcloud_converter_node ${PCL_LIBRARIES})
 
 # # 메시지 인터페이스를 노드에 연결
